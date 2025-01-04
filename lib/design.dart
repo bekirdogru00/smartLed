@@ -47,27 +47,26 @@ class _DesignState extends State<Design> {
         }
      }
   void _processSensorData(String message) {
-     try {
-        Map<String, String> newData = {};
-        List<String> pairs = message.split(", ");
-        
-        for (String pair in pairs) {
-           List<String> keyValue = pair.split(": ");
-           if (keyValue.length == 2) {
-              String key = keyValue[0].trim();
-              String value = keyValue[1].trim();
-              // Birimleri temizle
-              value = value.replaceAll("C", "").replaceAll("%", "").replaceAll("cm", "");
-              newData[key] = value;
-           }
-        }
-         setState(() {
-           sensorData = newData;
-        });
-        print('Sensör verileri güncellendi: $sensorData');
-     } catch (e) {
-        print('Sensör verisi işleme hatası: $e');
-     }
+    print('İşlenen sensör verisi: $message');
+    
+    // Regex ile değerleri ayıklama
+    RegExp tempRegex = RegExp(r'Temperature: ([\d.]+)C');
+    RegExp humRegex = RegExp(r'Humidity: ([\d.]+)%');
+    RegExp distRegex = RegExp(r'Distance: ([\d.]+)cm');
+
+    String? temp = tempRegex.firstMatch(message)?.group(1);
+    String? hum = humRegex.firstMatch(message)?.group(1);
+    String? dist = distRegex.firstMatch(message)?.group(1);
+
+    setState(() {
+      sensorData = {
+        'Temperature': temp != null ? '$temp°C' : 'N/A',
+        'Humidity': hum != null ? '$hum%' : 'N/A',
+        'Distance': dist != null ? '${dist}cm' : 'N/A'
+      };
+    });
+
+    print('Güncellenmiş sensör verileri: $sensorData');
   }
    Future<void> _loadPreferences() async {
      SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -130,7 +129,10 @@ class _DesignState extends State<Design> {
   @override
  Widget build(BuildContext context) {
    return Scaffold(
+     backgroundColor: Colors.grey[50],
      appBar: AppBar(
+       elevation: 0,
+       backgroundColor: Colors.white,
        title: const Column(
          children: [
            SizedBox(height: 40),
@@ -139,10 +141,13 @@ class _DesignState extends State<Design> {
              crossAxisAlignment: CrossAxisAlignment.center,
              children: [
                Text(
-                 "Merhaba, İSİM",
-                 style: TextStyle(fontWeight: FontWeight.bold),
+                 "Akıllı Ev Kontrolü",
+                 style: TextStyle(
+                   color: Colors.black87,
+                   fontSize: 20,
+                   fontWeight: FontWeight.w500,
+                 ),
                ),
-               SizedBox(width: 10),
              ],
            ),
          ],
@@ -152,44 +157,82 @@ class _DesignState extends State<Design> {
        child: Padding(
          padding: const EdgeInsets.all(16.0),
          child: Column(
-           mainAxisAlignment: MainAxisAlignment.start,
-           crossAxisAlignment: CrossAxisAlignment.center,
+           crossAxisAlignment: CrossAxisAlignment.start,
            children: [
-             const SizedBox(height: 30),
-             Row(
-               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 _buildRoomSelector("Oturma odası"),
-                 const SizedBox(width: 20),
-                 _buildRoomSelector("Mutfak"),
-                 const SizedBox(width: 20),
-                 _buildRoomSelector("Yatak Odası"),
-               ],
+             // Oda Seçici
+             Container(
+               height: 60,
+               child: ListView(
+                 scrollDirection: Axis.horizontal,
+                 children: [
+                   _buildRoomSelector("Oturma Odası"),
+                   const SizedBox(width: 20),
+                   _buildRoomSelector("Mutfak"),
+                   const SizedBox(width: 20),
+                   _buildRoomSelector("Yatak Odası"),
+                 ],
+               ),
              ),
-             const SizedBox(height: 30),
+             const SizedBox(height: 24),
              
-             // Sensör verileri gösterimi
+             // Sensör Verileri
              if (sensorData.isNotEmpty) ...[
-               Container(
-                 padding: const EdgeInsets.all(16),
-                 decoration: BoxDecoration(
-                   color: Colors.grey[200],
-                   borderRadius: BorderRadius.circular(10),
+               Card(
+                 elevation: 0,
+                 shape: RoundedRectangleBorder(
+                   borderRadius: BorderRadius.circular(16),
+                   side: BorderSide(color: Colors.grey[200]!),
                  ),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text("Sıcaklık: ${sensorData['Temperature'] ?? 'N/A'}"),
-                     Text("Nem: ${sensorData['Humidity'] ?? 'N/A'}"),
-                     Text("Mesafe: ${sensorData['Distance'] ?? 'N/A'}"),
-                   ],
+                 child: Padding(
+                   padding: const EdgeInsets.all(20),
+                   child: Column(
+                     crossAxisAlignment: CrossAxisAlignment.start,
+                     children: [
+                       const Text(
+                         "Sensör Verileri",
+                         style: TextStyle(
+                           fontSize: 18,
+                           fontWeight: FontWeight.w600,
+                         ),
+                       ),
+                       const SizedBox(height: 16),
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceAround,
+                         children: [
+                           _buildSensorItem(
+                             Icons.thermostat,
+                             "Sıcaklık",
+                             "${sensorData['Temperature'] ?? 'N/A'}",
+                             Colors.orange,
+                           ),
+                           _buildSensorItem(
+                             Icons.water_drop,
+                             "Nem",
+                             "${sensorData['Humidity'] ?? 'N/A'}",
+                             Colors.blue,
+                           ),
+                           _buildSensorItem(
+                             Icons.straighten,
+                             "Mesafe",
+                             "${sensorData['Distance'] ?? 'N/A'}",
+                             Colors.purple,
+                           ),
+                         ],
+                       ),
+                     ],
+                   ),
                  ),
                ),
-               const SizedBox(height: 20),
+               const SizedBox(height: 24),
              ],
-              // Smart Light kontrolü
-             GestureDetector(
-               onTap: () {
+             
+             // Cihaz Kartları
+             _buildDeviceCard(
+               "Akıllı Işık",
+               isSmartLightOn,
+               Icons.lightbulb,
+               Colors.amber,
+               () {
                  _toggleSmartLight();
                  if (isSmartLightOn) {
                    Navigator.push(
@@ -200,96 +243,94 @@ class _DesignState extends State<Design> {
                    );
                  }
                },
-               child: Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 100),
-                 decoration: BoxDecoration(
-                   color: isSmartLightOn
-                       ? const Color.fromARGB(255, 107, 97, 5)
-                       : Colors.grey,
-                   borderRadius: BorderRadius.circular(40),
-                 ),
-                 child: Row(
-                   children: [
-                     const SizedBox(width: 20),
-                     Text(
-                       "Smart Light ${isSmartLightOn ? "Açık" : "Kapalı"}",
-                       style: const TextStyle(
-                         color: Colors.white,
-                         fontWeight: FontWeight.bold,
-                       ),
-                     ),
-                   ],
-                 ),
-               ),
              ),
-              const SizedBox(height: 20),
-              // Smart AC kontrolü
-             GestureDetector(
-               onTap: () {
+             const SizedBox(height: 16),
+             _buildDeviceCard(
+               "Akıllı Klima",
+               isSmartACOn,
+               Icons.ac_unit,
+               Colors.blue,
+               () {
                  setState(() {
                    isSmartACOn = !isSmartACOn;
                  });
                  _savePreferences();
                },
-               child: Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 100),
-                 decoration: BoxDecoration(
-                   color: isSmartACOn ? Colors.blue : Colors.grey,
-                   borderRadius: BorderRadius.circular(40),
-                 ),
-                 child: Row(
+             ),
+             
+             /* // Yeni Cihaz Ekleme
+             const SizedBox(height: 24),
+             Card(
+               elevation: 0,
+               shape: RoundedRectangleBorder(
+                 borderRadius: BorderRadius.circular(16),
+                 side: BorderSide(color: Colors.grey[200]!),
+               ),
+               child: Padding(
+                 padding: const EdgeInsets.all(20),
+                 child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                     const SizedBox(width: 20),
-                     Text(
-                       "Smart AC ${isSmartACOn ? "Açık" : "Kapalı"}",
-                       style: const TextStyle(
-                         color: Colors.white,
-                         fontWeight: FontWeight.bold,
+                     const Text(
+                       "Yeni Cihaz Ekle",
+                       style: TextStyle(
+                         fontSize: 18,
+                         fontWeight: FontWeight.w600,
                        ),
+                     ),
+                     const SizedBox(height: 16),
+                     Row(
+                       children: [
+                         Expanded(
+                           child: TextField(
+                             controller: newDeviceController,
+                             decoration: InputDecoration(
+                               hintText: 'Cihaz adı',
+                               border: OutlineInputBorder(
+                                 borderRadius: BorderRadius.circular(12),
+                                 borderSide: BorderSide(color: Colors.grey[300]!),
+                               ),
+                               enabledBorder: OutlineInputBorder(
+                                 borderRadius: BorderRadius.circular(12),
+                                 borderSide: BorderSide(color: Colors.grey[300]!),
+                               ),
+                               focusedBorder: OutlineInputBorder(
+                                 borderRadius: BorderRadius.circular(12),
+                                 borderSide: BorderSide(color: Colors.blue[700]!),
+                               ),
+                             ),
+                           ),
+                         ),
+                         const SizedBox(width: 12),
+                         IconButton(
+                           icon: Icon(Icons.add_circle, color: Colors.blue[700], size: 32),
+                           onPressed: _addNewDevice,
+                         ),
+                       ],
+                     ),
+                     const SizedBox(height: 16),
+                     Wrap(
+                       spacing: 8,
+                       runSpacing: 8,
+                       children: devices.map((device) {
+                         return Chip(
+                           label: Text(device),
+                           backgroundColor: Colors.grey[100],
+                           side: BorderSide(color: Colors.grey[300]!),
+                           deleteIcon: const Icon(Icons.close, size: 18),
+                           onDeleted: () {
+                             setState(() {
+                               devices.remove(device);
+                             });
+                             _savePreferences();
+                           },
+                         );
+                       }).toList(),
                      ),
                    ],
                  ),
                ),
-             ),
-              const SizedBox(height: 30),
-              // Yeni cihaz ekleme
-             Padding(
-               padding: const EdgeInsets.symmetric(horizontal: 20),
-               child: Row(
-                 children: [
-                   Expanded(
-                     child: TextField(
-                       controller: newDeviceController,
-                       decoration: const InputDecoration(
-                         labelText: 'Yeni cihaz adı girin',
-                         border: OutlineInputBorder(),
-                       ),
-                     ),
-                   ),
-                   IconButton(
-                     icon: const Icon(Icons.add),
-                     onPressed: _addNewDevice,
-                   ),
-                 ],
-               ),
-             ),
-              const SizedBox(height: 20),
-              // Cihaz listesi
-             ...devices.map((device) {
-               return Padding(
-                 padding: const EdgeInsets.symmetric(vertical: 5),
-                 child: Chip(
-                   label: Text(device),
-                   deleteIcon: const Icon(Icons.delete),
-                   onDeleted: () {
-                     setState(() {
-                       devices.remove(device);
-                     });
-                     _savePreferences();
-                   },
-                 ),
-               );
-             }).toList(),
+             ), */
            ],
          ),
        ),
@@ -297,25 +338,104 @@ class _DesignState extends State<Design> {
    );
  }
   Widget _buildRoomSelector(String roomName) {
+   bool isSelected = selectedRoom == roomName;
    return GestureDetector(
      onTap: () => _changeRoom(roomName),
-     child: Column(
-       children: [
-         Text(
-           roomName,
-           style: TextStyle(
-             fontWeight:
-                 selectedRoom == roomName ? FontWeight.bold : FontWeight.w100,
-           ),
+     child: Container(
+       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+       decoration: BoxDecoration(
+         color: isSelected ? Colors.blue[700] : Colors.transparent,
+         borderRadius: BorderRadius.circular(30),
+         border: Border.all(
+           color: isSelected ? Colors.blue[700]! : Colors.grey[300]!,
          ),
-         if (selectedRoom == roomName)
-           Container(
-             margin: const EdgeInsets.only(top: 5),
-             height: 2,
-             width: 80,
-             color: Colors.black,
-           ),
-       ],
+       ),
+       child: Text(
+         roomName,
+         style: TextStyle(
+           color: isSelected ? Colors.white : Colors.grey[600],
+           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+         ),
+       ),
+     ),
+   );
+ }
+
+ Widget _buildSensorItem(IconData icon, String label, String value, Color color) {
+   return Column(
+     children: [
+       Container(
+         padding: const EdgeInsets.all(12),
+         decoration: BoxDecoration(
+           color: color.withOpacity(0.1),
+           shape: BoxShape.circle,
+         ),
+         child: Icon(icon, color: color, size: 24),
+       ),
+       const SizedBox(height: 8),
+       Text(
+         label,
+         style: TextStyle(
+           color: Colors.grey[600],
+           fontSize: 14,
+         ),
+       ),
+       const SizedBox(height: 4),
+       Text(
+         value,
+         style: const TextStyle(
+           fontWeight: FontWeight.w600,
+           fontSize: 16,
+         ),
+       ),
+     ],
+   );
+ }
+
+ Widget _buildDeviceCard(String title, bool isOn, IconData icon, Color color, VoidCallback onTap) {
+   return Card(
+     elevation: 0,
+     shape: RoundedRectangleBorder(
+       borderRadius: BorderRadius.circular(16),
+       side: BorderSide(color: Colors.grey[200]!),
+     ),
+     child: InkWell(
+       onTap: onTap,
+       borderRadius: BorderRadius.circular(16),
+       child: Padding(
+         padding: const EdgeInsets.all(20),
+         child: Row(
+           children: [
+             Container(
+               padding: const EdgeInsets.all(12),
+               decoration: BoxDecoration(
+                 color: isOn ? color.withOpacity(0.1) : Colors.grey[100],
+                 shape: BoxShape.circle,
+               ),
+               child: Icon(
+                 icon,
+                 color: isOn ? color : Colors.grey,
+                 size: 24,
+               ),
+             ),
+             const SizedBox(width: 16),
+             Expanded(
+               child: Text(
+                 title,
+                 style: const TextStyle(
+                   fontSize: 16,
+                   fontWeight: FontWeight.w500,
+                 ),
+               ),
+             ),
+             Switch(
+               value: isOn,
+               activeColor: color,
+               onChanged: (value) => onTap(),
+             ),
+           ],
+         ),
+       ),
      ),
    );
  }

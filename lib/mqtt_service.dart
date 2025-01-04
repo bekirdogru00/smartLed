@@ -5,8 +5,9 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 class MqttService {
   late MqttServerClient client;
   bool isConnected = false;
+  int reconnectAttempts = 0;
+  static const int maxReconnectAttempts = 3;
 
-  // HiveMQ ayarları
   final String broker = '8b25e7c8fa7f43ddbfd68b4553830dd2.s1.eu.hivemq.cloud';
   final int port = 8883;
   final String username = 'bekirdgr';
@@ -16,36 +17,29 @@ class MqttService {
     try {
       final clientId = 'flutter_${DateTime.now().millisecondsSinceEpoch}';
       
-      print('MQTT Başlatılıyor...');
-      print('Broker: $broker');
-      print('Port: $port');
-      print('Client ID: $clientId');
-
       client = MqttServerClient.withPort(broker, clientId, port);
       
-      // Callback'ler
       client.onConnected = _onConnected;
       client.onDisconnected = _onDisconnected;
       client.onSubscribed = _onSubscribed;
       client.onSubscribeFail = _onSubscribeFail;
       client.pongCallback = _pong;
+      client.secure = true;
 
-      // Temel ayarlar
+      client.securityContext = SecurityContext.defaultContext;
+      client.onBadCertificate = (Object certificate) => true;
+
       client.logging(on: true);
-      client.keepAlivePeriod = 60; // 60 saniyeye çıkardık
+      client.keepAlivePeriod = 60;
       client.connectTimeoutPeriod = 5000;
       client.autoReconnect = true;
+      client.resubscribeOnAutoReconnect = true;
       
-      // SSL ayarları
-      client.secure = true;
-      client.securityContext = SecurityContext.defaultContext;
-      client.onBadCertificate = (dynamic certificate) => true;
-
       final connMessage = MqttConnectMessage()
           .withClientIdentifier(clientId)
           .authenticateAs(username, password)
           .withWillTopic('willtopic')
-          .withWillMessage('Flutter client disconnecting')
+          .withWillMessage('Client disconnecting')
           .withWillQos(MqttQos.atLeastOnce)
           .withWillRetain()
           .startClean();
@@ -54,32 +48,40 @@ class MqttService {
       client.connectionMessage = connMessage;
 
       try {
-        await client.connect().timeout(
-          Duration(seconds: 5),
-          onTimeout: () {
-            throw Exception('Bağlantı zaman aşımı');
-          },
-        );
+        await client.connect();
+        return _checkConnection();
       } catch (e) {
         print('Bağlantı hatası: $e');
-        _disconnect();
-        return false;
-      }
-
-      if (client.connectionStatus!.state == MqttConnectionState.connected) {
-        print('Broker\'a bağlandı');
-        isConnected = true;
-        _subscribeToTopics();
-        return true;
-      } else {
-        print('Bağlantı başarısız: ${client.connectionStatus!.returnCode}');
-        _disconnect();
-        return false;
+        return await _handleReconnect();
       }
 
     } catch (e) {
       print('MQTT Hatası: $e');
-      _disconnect();
+      return false;
+    }
+  }
+
+  Future<bool> _handleReconnect() async {
+    if (reconnectAttempts < maxReconnectAttempts) {
+      reconnectAttempts++;
+      print('Yeniden bağlanma denemesi: $reconnectAttempts');
+      await Future.delayed(Duration(seconds: reconnectAttempts * 2));
+      return initialize();
+    } else {
+      print('Maksimum yeniden bağlanma denemesi aşıldı');
+      return false;
+    }
+  }
+
+  bool _checkConnection() {
+    if (client.connectionStatus!.state == MqttConnectionState.connected) {
+      print('Broker\'a bağlandı');
+      isConnected = true;
+      reconnectAttempts = 0;
+      _subscribeToTopics();
+      return true;
+    } else {
+      print('Bağlantı başarısız: ${client.connectionStatus!.returnCode}');
       return false;
     }
   }
@@ -159,5 +161,12 @@ class MqttService {
   void disconnect() {
     _disconnect();
     print('MQTT bağlantısı kapatıldı');
+  }
+
+  void unsubscribe(String topic) {
+    if (client?.connectionStatus?.state == MqttConnectionState.connected) {
+      print('MQTT: $topic konusundan abonelik kaldırılıyor');
+      client?.unsubscribe(topic);
+    }
   }
 }
