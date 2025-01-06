@@ -15,7 +15,11 @@ class _DesignState extends State<Design> {
  bool isSmartLightOn = false;
  bool isSmartACOn = false;
  List<String> devices = [];
- Map<String, dynamic> sensorData = {};
+ Map<String, dynamic> sensorData = {
+   'Temperature': 'N/A',
+   'Humidity': 'N/A',
+   'Distance': 'N/A'
+ };
   TextEditingController newDeviceController = TextEditingController();
  late MqttService mqttService;
   @override
@@ -176,55 +180,53 @@ class _DesignState extends State<Design> {
              const SizedBox(height: 24),
              
              // Sensör Verileri
-             if (sensorData.isNotEmpty) ...[
-               Card(
-                 elevation: 0,
-                 shape: RoundedRectangleBorder(
-                   borderRadius: BorderRadius.circular(16),
-                   side: BorderSide(color: Colors.grey[200]!),
-                 ),
-                 child: Padding(
-                   padding: const EdgeInsets.all(20),
-                   child: Column(
-                     crossAxisAlignment: CrossAxisAlignment.start,
-                     children: [
-                       const Text(
-                         "Sensör Verileri",
-                         style: TextStyle(
-                           fontSize: 18,
-                           fontWeight: FontWeight.w600,
+             Card(
+               elevation: 0,
+               shape: RoundedRectangleBorder(
+                 borderRadius: BorderRadius.circular(16),
+                 side: BorderSide(color: Colors.grey[200]!),
+               ),
+               child: Padding(
+                 padding: const EdgeInsets.all(20),
+                 child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     const Text(
+                       "Sensör Verileri",
+                       style: TextStyle(
+                         fontSize: 18,
+                         fontWeight: FontWeight.w600,
+                       ),
+                     ),
+                     const SizedBox(height: 16),
+                     Row(
+                       mainAxisAlignment: MainAxisAlignment.spaceAround,
+                       children: [
+                         _buildSensorItem(
+                           Icons.thermostat,
+                           "Sıcaklık",
+                           "${sensorData['Temperature']}",
+                           Colors.orange,
                          ),
-                       ),
-                       const SizedBox(height: 16),
-                       Row(
-                         mainAxisAlignment: MainAxisAlignment.spaceAround,
-                         children: [
-                           _buildSensorItem(
-                             Icons.thermostat,
-                             "Sıcaklık",
-                             "${sensorData['Temperature'] ?? 'N/A'}",
-                             Colors.orange,
-                           ),
-                           _buildSensorItem(
-                             Icons.water_drop,
-                             "Nem",
-                             "${sensorData['Humidity'] ?? 'N/A'}",
-                             Colors.blue,
-                           ),
-                           _buildSensorItem(
-                             Icons.straighten,
-                             "Mesafe",
-                             "${sensorData['Distance'] ?? 'N/A'}",
-                             Colors.purple,
-                           ),
-                         ],
-                       ),
-                     ],
-                   ),
+                         _buildSensorItem(
+                           Icons.water_drop,
+                           "Nem",
+                           "${sensorData['Humidity']}",
+                           Colors.blue,
+                         ),
+                         _buildSensorItem(
+                           Icons.straighten,
+                           "Mesafe",
+                           "${sensorData['Distance']}",
+                           Colors.purple,
+                         ),
+                       ],
+                     ),
+                   ],
                  ),
                ),
-               const SizedBox(height: 24),
-             ],
+             ),
+             const SizedBox(height: 24),
              
              // Cihaz Kartları
              _buildDeviceCard(
